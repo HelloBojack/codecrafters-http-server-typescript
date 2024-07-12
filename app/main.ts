@@ -31,7 +31,7 @@ const server = net.createServer((socket) => {
     let contentLength = 0;
     let isReadingHeaders = true;
 
-
+    const [headerPart, ...bodyParts] = request.split("\r\n\r\n");
     // Extract headers
     for (let i = 1; i < requestLines.length; i++) {
       const line = requestLines[i];
@@ -39,7 +39,7 @@ const server = net.createServer((socket) => {
       const [key, value] = line.split(": ");
       headers[key] = value;
     }
-    console.log('xlk headers', headers)
+    body = Buffer.concat([body, Buffer.from(bodyParts.join("\r\n\r\n"))]);
 
     if (method === "GET") {
       if (requestPath === "/") {
@@ -99,8 +99,7 @@ const server = net.createServer((socket) => {
       // const directory = headers['Content-Type']
       const filename = requestPath.slice(7); // Extract the filename from the path
       const filepath = path.resolve(directory, filename);
-      console.log('xlk ', filename, filepath)
-      fs.writeFile(filepath, filename, (err) => {
+      fs.writeFile(filepath, body, (err) => {
         if (err) {
           // Error writing the file, respond with 500 Internal Server Error
           socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
