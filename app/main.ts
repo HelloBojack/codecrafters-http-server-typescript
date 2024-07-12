@@ -18,8 +18,9 @@ const server = net.createServer((socket) => {
         // Respond with 200 OK for root path
         socket.write("HTTP/1.1 200 OK\r\n\r\n");
       } else {
-        // Respond with 404 Not Found for any other path
-        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+        const echoStr = path.slice(6);
+        const contentLength = Buffer.byteLength(echoStr, 'utf8');
+        socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${contentLength}\r\n\r\n${echoStr}`);
       }
     }
     // End the connection
