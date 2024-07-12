@@ -1,6 +1,6 @@
 import * as net from "net";
 import * as fs from "fs";
-import { resolve } from "path";  // Correctly import the resolve function from the path module
+import * as path from "path";
 
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
@@ -27,6 +27,10 @@ const server = net.createServer((socket) => {
     const requestLine = requestLines[0];
     const [method, requestPath] = requestLine.split(" ");
     const headers = {};
+    let body = Buffer.alloc(0);
+    let contentLength = 0;
+    let isReadingHeaders = true;
+
 
     // Extract headers
     for (let i = 1; i < requestLines.length; i++) {
@@ -35,6 +39,7 @@ const server = net.createServer((socket) => {
       const [key, value] = line.split(": ");
       headers[key] = value;
     }
+    console.log('xlk headers', headers)
 
     if (method === "GET") {
       if (requestPath === "/") {
@@ -53,7 +58,7 @@ const server = net.createServer((socket) => {
         socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${contentLength}\r\n\r\n${userAgent}`);
       } else if (requestPath.startsWith("/files/")) {
         const filename = requestPath.slice(7); // Extract the filename from the requestPath
-        const filepath = resolve(directory, filename);
+        const filepath = path.resolve(directory, filename);
 
         // Check if the file exists
         fs.stat(filepath, (err, stats) => {
@@ -88,6 +93,23 @@ const server = net.createServer((socket) => {
         socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
         socket.end();
       }
+    }
+
+    if (method === "POST" && requestPath.startsWith("/files/")) {
+      // const directory = headers['Content-Type']
+      const filename = requestPath.slice(7); // Extract the filename from the path
+      const filepath = path.resolve(directory, filename);
+      console.log('xlk ', filename, filepath)
+      fs.writeFile(filepath, filename, (err) => {
+        if (err) {
+          // Error writing the file, respond with 500 Internal Server Error
+          socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+        } else {
+          // Respond with 201 Created
+          socket.write("HTTP/1.1 201 Created\r\n\r\n");
+        }
+        socket.end();
+      });
     }
   });
 
