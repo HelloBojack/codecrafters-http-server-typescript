@@ -4,6 +4,14 @@ import * as net from "net";
 console.log("Logs from your program will appear here!");
 
 const server = net.createServer((socket) => {
+  socket.on("data", (data) => {
+    console.log(`Received data: ${data}`);
+    // Send HTTP response
+    socket.write("HTTP/1.1 200 OK\r\n\r\n");
+    // End the connection
+    socket.end();
+  });
+
   socket.on("close", () => {
     socket.end();
   });
