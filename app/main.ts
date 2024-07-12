@@ -48,18 +48,30 @@ const server = net.createServer((socket) => {
         socket.write("HTTP/1.1 200 OK\r\n\r\n");
         socket.end();
       } else if (requestPath.startsWith("/echo/")) {
-        if (headers) {
-          const isGzip = headers?.['Accept-Encoding']?.includes('gzip') || false;
-          const echoStr = requestPath.slice(6);
+        const isGzip = headers?.['Accept-Encoding']?.includes('gzip') || false;
+        const echoText = requestPath.slice(6); // Extract the text to echo
+        let responseBody = Buffer.from(echoText, "utf-8");
+        let headersToSend = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n";
 
-          const responseBody = isGzip ? zlib.gzipSync(echoStr) : echoStr;
-          const contentLength = Buffer.byteLength(responseBody, 'utf8');
-          // Respond with 200 OK and the echoed string
-          socket.write(`HTTP/1.1 200 OK\r\n${isGzip ? 'Content-Encoding: gzip\r\n' : ''}Content-Type: text/plain\r\nContent-Length: ${contentLength} \r\n\r\n${responseBody} `);
+        // Handle gzip compression if specified
+        if (isGzip) {
+          zlib.gzip(responseBody, (err, compressedBody) => {
+            if (err) {
+              console.error(`Gzip error: ${err}`);
+              socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+            } else {
+              headersToSend += `Content-Encoding: gzip\r\nContent-Length: ${compressedBody.length}\r\n\r\n`;
+              socket.write(headersToSend);
+              socket.write(compressedBody);
+            }
+            socket.end();
+          });
         } else {
-          socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(responseBody, 'utf8')} \r\n\r\n${echoStr} `);
+          headersToSend += `Content-Length: ${responseBody.length}\r\n\r\n`;
+          socket.write(headersToSend);
+          socket.write(responseBody);
+          socket.end();
         }
-
       } else if (requestPath === "/user-agent" && headers["User-Agent"]) {
         const userAgent = headers["User-Agent"];
         const contentLength = Buffer.byteLength(userAgent, 'utf8');
