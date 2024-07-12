@@ -48,13 +48,18 @@ const server = net.createServer((socket) => {
         socket.write("HTTP/1.1 200 OK\r\n\r\n");
         socket.end();
       } else if (requestPath.startsWith("/echo/")) {
-        const isGzip = headers['Accept-Encoding'] === 'gzip';
-        const echoStr = requestPath.slice(6);
+        if (headers) {
+          const isGzip = headers?.['Accept-Encoding']?.includes('gzip') || false;
+          const echoStr = requestPath.slice(6);
 
-        const responseBody = isGzip ? zlib.gzipSync(echoStr) : echoStr;
-        const contentLength = Buffer.byteLength(responseBody, 'utf8');
-        // Respond with 200 OK and the echoed string
-        socket.write(`HTTP/1.1 200 OK\r\n${isGzip ? 'Content-Encoding: gzip\r\n' : ''}Content-Type: text/plain\r\nContent-Length: ${contentLength} \r\n\r\n${responseBody} `);
+          const responseBody = isGzip ? zlib.gzipSync(echoStr) : echoStr;
+          const contentLength = Buffer.byteLength(responseBody, 'utf8');
+          // Respond with 200 OK and the echoed string
+          socket.write(`HTTP/1.1 200 OK\r\n${isGzip ? 'Content-Encoding: gzip\r\n' : ''}Content-Type: text/plain\r\nContent-Length: ${contentLength} \r\n\r\n${responseBody} `);
+        } else {
+          socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(responseBody, 'utf8')} \r\n\r\n${echoStr} `);
+        }
+
       } else if (requestPath === "/user-agent" && headers["User-Agent"]) {
         const userAgent = headers["User-Agent"];
         const contentLength = Buffer.byteLength(userAgent, 'utf8');
