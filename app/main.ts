@@ -1,6 +1,7 @@
 import * as net from "net";
 import * as fs from "fs";
 import * as path from "path";
+import * as zlib from "zlib";
 
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
@@ -47,45 +48,38 @@ const server = net.createServer((socket) => {
         socket.write("HTTP/1.1 200 OK\r\n\r\n");
         socket.end();
       } else if (requestPath.startsWith("/echo/")) {
+        const isGzip = headers['Accept-Encoding'] === 'gzip';
         const echoStr = requestPath.slice(6);
-        const contentLength = Buffer.byteLength(echoStr, 'utf8');
+
+        const responseBody = isGzip ? zlib.gzipSync(echoStr) : echoStr;
+        const contentLength = Buffer.byteLength(responseBody, 'utf8');
         // Respond with 200 OK and the echoed string
-        socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${contentLength}\r\n\r\n${echoStr}`);
+        socket.write(`HTTP/1.1 200 OK\r\n${isGzip ? 'Content-Encoding: gzip\r\n' : ''}Content-Type: text/plain\r\nContent-Length: ${contentLength} \r\n\r\n${responseBody} `);
       } else if (requestPath === "/user-agent" && headers["User-Agent"]) {
         const userAgent = headers["User-Agent"];
         const contentLength = Buffer.byteLength(userAgent, 'utf8');
         // Respond with 200 OK and the User-Agent value
-        socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${contentLength}\r\n\r\n${userAgent}`);
+        socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${contentLength} \r\n\r\n${userAgent} `);
       } else if (requestPath.startsWith("/files/")) {
         const filename = requestPath.slice(7); // Extract the filename from the requestPath
         const filepath = path.resolve(directory, filename);
 
-        // Check if the file exists
-        fs.stat(filepath, (err, stats) => {
-          if (err || !stats.isFile()) {
-            // File does not exist, respond with 404 Not Found
+        fs.readFile(filepath, (err, content) => {
+          if (err) {
+            // Error reading the file, respond with 500 Internal Server Error
             socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
             socket.end();
           } else {
-            // File exists, read and send the file content
-            fs.readFile(filepath, (err, content) => {
-              if (err) {
-                // Error reading the file, respond with 500 Internal Server Error
-                socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
-                socket.end();
-              } else {
-                // Respond with 200 OK and file content
-                const headers = [
-                  "HTTP/1.1 200 OK",
-                  "Content-Type: application/octet-stream",
-                  `Content-Length: ${content.length}`,
-                  "\r\n"
-                ];
-                socket.write(headers.join("\r\n"));
-                socket.write(content);
-                socket.end();
-              }
-            });
+            // Respond with 200 OK and file content
+            const headers = [
+              "HTTP/1.1 200 OK",
+              "Content-Type: application/octet-stream",
+              `Content-Length: ${content.length} `,
+              "\r\n"
+            ];
+            socket.write(headers.join("\r\n"));
+            socket.write(content);
+            socket.end();
           }
         });
       } else {
@@ -117,7 +111,7 @@ const server = net.createServer((socket) => {
   });
 
   socket.on("error", (err) => {
-    console.error(`Error: ${err}`);
+    console.error(`Error: ${err} `);
   });
 });
 
